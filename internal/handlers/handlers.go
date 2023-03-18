@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"sort"
 )
 
 var wsChan = make(chan WsPayload)
@@ -36,9 +37,10 @@ type WebSocketConnection struct {
 
 // WsJsonResponse defines the response sent back from websocket
 type WsJsonResponse struct {
-	Action      string `json:"action"`
-	Message     string `json:"message"`
-	MessageType string `json:"message_type"`
+	Action         string   `json:"action"`
+	Message        string   `json:"message"`
+	MessageType    string   `json:"message_type"`
+	ConnectedUsers []string `json:"connected_users"`
 }
 
 type WsPayload struct {
@@ -93,10 +95,27 @@ func ListenToWsChannel() {
 	var response WsJsonResponse
 	for {
 		event := <-wsChan
-		response.Action = "Got here"
-		response.Message = fmt.Sprintf("Some message and action was %s", event.Action)
-		broadCastToAll(response)
+		switch event.Action {
+		case "username":
+			//Get list of all users and send back via broadcast
+			clients[event.Conn] = event.Username
+			users := getUserList()
+			response.Action = "list_users"
+			response.ConnectedUsers = users
+			broadCastToAll(response)
+		}
+		//response.Action = "Got here"
+		//response.Message = fmt.Sprintf("Some message and action was %s", event.Action)
+		//broadCastToAll(response)
 	}
+}
+func getUserList() []string {
+	var userList []string
+	for _, x := range clients {
+		userList = append(userList, x)
+	}
+	sort.Strings(userList)
+	return userList
 }
 
 func broadCastToAll(response WsJsonResponse) {
