@@ -10,5 +10,6 @@ func routes() http.Handler {
 	mux := chi.NewRouter()
 
 	mux.Get("/", handlers.Home)
+	mux.Get("/ws", handlers.WsEndpoint)
 	return mux
 }
