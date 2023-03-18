@@ -103,6 +103,16 @@ func ListenToWsChannel() {
 			response.Action = "list_users"
 			response.ConnectedUsers = users
 			broadCastToAll(response)
+		case "left":
+			response.Action = "list_users"
+			delete(clients, event.Conn)
+			users := getUserList()
+			response.ConnectedUsers = users
+			broadCastToAll(response)
+		case "broadcast":
+			response.Action = "broadcast"
+			response.Message = fmt.Sprintf("<strong>%s</strong>: %s", event.Username, event.Message)
+			broadCastToAll(response)
 		}
 		//response.Action = "Got here"
 		//response.Message = fmt.Sprintf("Some message and action was %s", event.Action)
@@ -112,7 +122,9 @@ func ListenToWsChannel() {
 func getUserList() []string {
 	var userList []string
 	for _, x := range clients {
-		userList = append(userList, x)
+		if x != "" {
+			userList = append(userList, x)
+		}
 	}
 	sort.Strings(userList)
 	return userList
