@@ -1,11 +1,16 @@
 package handlers
 
 import (
+	"fmt"
 	"github.com/CloudyKit/jet/v6"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 )
+
+var wsChan = make(chan WsPayload)
+
+var clients = make(map[WebSocketConnection]string)
 
 var views = jet.NewSet(
 	jet.NewOSFileSystemLoader("./html"),
@@ -51,10 +56,57 @@ func WsEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Println("Client connected to endpoint")
 	var response WsJsonResponse
 	response.Message = `<em><small>Connected to server</small></em>`
-	
+
+	conn := WebSocketConnection{Conn: ws}
+	clients[conn] = ""
+
 	err = ws.WriteJSON(response)
 	if err != nil {
 		log.Println(err)
+	}
+	go ListenForWs(&conn)
+}
+
+// Listens for a payload, if gets one, sends off to a channel
+func ListenForWs(conn *WebSocketConnection) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Error", fmt.Sprintf("%v", r))
+		}
+	}()
+
+	var payload WsPayload
+	for {
+		err := conn.ReadJSON(&payload)
+		if err != nil {
+			//do nothing, there is no payload
+		} else {
+			payload.Conn = *conn
+			//sends this to the websocket channel
+			wsChan <- payload
+		}
+	}
+}
+
+// Any time I get a value from the channel, I populate response variable with some info
+func ListenToWsChannel() {
+	var response WsJsonResponse
+	for {
+		event := <-wsChan
+		response.Action = "Got here"
+		response.Message = fmt.Sprintf("Some message and action was %s", event.Action)
+		broadCastToAll(response)
+	}
+}
+
+func broadCastToAll(response WsJsonResponse) {
+	for client := range clients {
+		err := client.WriteJSON(response)
+		if err != nil {
+			log.Println("Websocket err")
+			_ = client.Close()
+			delete(clients, client)
+		}
 	}
 }
 

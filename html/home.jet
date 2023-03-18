@@ -61,7 +61,9 @@
             console.log("There was an error", error)
         }
         socket.onmessage = msg => {
-            console.log(msg);
+            //console.log(msg);
+            let j = JSON.parse(msg.data)
+            console.log(j)
         }
     })
 </script>
